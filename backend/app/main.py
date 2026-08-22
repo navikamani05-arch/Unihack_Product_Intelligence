@@ -43,6 +43,18 @@ _redoc_url = "/redoc" if settings.enable_docs else None
 _openapi_url = "/openapi.json" if settings.enable_docs else None
 
 app = FastAPI(
+    from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://frontend-beige-phi-75.vercel.app",
+        "https://frontend-navika-m.vercel.app",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
     title=settings.api_title,
     description=settings.api_description,
     version=settings.api_version,
