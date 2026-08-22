@@ -1,21 +1,21 @@
 import axios, { AxiosInstance } from 'axios';
 
-// -----------------------------------------------------------------------------
-// API BASE URL
-// -----------------------------------------------------------------------------
+// =============================================================================
+// API CONFIGURATION
+// =============================================================================
+//
 // Local development:
-//   VITE_API_URL is not required.
-//   Requests will use the Vite /api proxy.
+//   Uses Vite's /api proxy when VITE_API_URL is not defined.
 //
 // Production:
-//   Set VITE_API_URL to your deployed FastAPI backend, for example:
-//   https://your-backend.example.com/api/v1
+//   Set VITE_API_URL to your deployed FastAPI API base URL.
+//
+// Example:
+//   VITE_API_URL=https://your-backend.example.com/api/v1
 //
 // IMPORTANT:
 //   Do NOT add /api/v1 twice.
-//   Correct:
-//      https://your-backend.example.com/api/v1
-// -----------------------------------------------------------------------------
+//
 
 const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
@@ -23,14 +23,18 @@ const API_TIMEOUT_MS = Number(
   import.meta.env.VITE_API_TIMEOUT_MS || 120000,
 );
 
+// =============================================================================
+// AXIOS CLIENT
+// =============================================================================
+
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_URL,
   timeout: API_TIMEOUT_MS,
 });
 
-// -----------------------------------------------------------------------------
-// RESPONSE ERROR HANDLING
-// -----------------------------------------------------------------------------
+// =============================================================================
+// RESPONSE ERROR HANDLER
+// =============================================================================
 
 apiClient.interceptors.response.use(
   (response) => response,
@@ -53,7 +57,7 @@ apiClient.interceptors.response.use(
 );
 
 // =============================================================================
-// API
+// API METHODS
 // =============================================================================
 
 export const api = {
@@ -65,18 +69,14 @@ export const api = {
   health: () =>
     apiClient.get('/health'),
 
-
   // ===========================================================================
   // INGESTION
   // ===========================================================================
 
-  /**
-   * Upload PDF
-   *
-   * Backend:
-   * POST /api/v1/ingest/upload-pdf
-   */
-  uploadPdf: (file: File, jobName?: string) => {
+  uploadPdf: (
+    file: File,
+    jobName?: string,
+  ) => {
     const formData = new FormData();
 
     formData.append('file', file);
@@ -88,22 +88,13 @@ export const api = {
     return apiClient.post(
       '/ingest/upload-pdf',
       formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      },
     );
   },
 
-
-  /**
-   * Upload CSV
-   *
-   * Backend:
-   * POST /api/v1/ingest/upload-csv
-   */
-  uploadCsv: (file: File, jobName?: string) => {
+  uploadCsv: (
+    file: File,
+    jobName?: string,
+  ) => {
     const formData = new FormData();
 
     formData.append('file', file);
@@ -115,22 +106,13 @@ export const api = {
     return apiClient.post(
       '/ingest/upload-csv',
       formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      },
     );
   },
 
-
-  /**
-   * Upload Website
-   *
-   * Backend:
-   * POST /api/v1/ingest/upload-website?url=...&job_name=...
-   */
-  uploadWebsite: (url: string, jobName = 'Website Upload') =>
+  uploadWebsite: (
+    url: string,
+    jobName: string = 'Website Upload',
+  ) =>
     apiClient.post(
       '/ingest/upload-website',
       null,
@@ -142,37 +124,24 @@ export const api = {
       },
     ),
 
+  getIngestionJob: (
+    jobId: number,
+  ) =>
+    apiClient.get(
+      `/ingest/jobs/${jobId}`,
+    ),
 
-  /**
-   * Get ingestion job details
-   *
-   * Backend:
-   * GET /api/v1/ingest/jobs/{job_id}
-   */
-  getIngestionJob: (jobId: number) =>
-    apiClient.get(`/ingest/jobs/${jobId}`),
-
-
-  /**
-   * Get ingestion job status
-   *
-   * Backend:
-   * GET /api/v1/ingest/jobs/{job_id}/status
-   */
-  getIngestionStatus: (jobId: number) =>
-    apiClient.get(`/ingest/jobs/${jobId}/status`),
-
+  getIngestionStatus: (
+    jobId: number,
+  ) =>
+    apiClient.get(
+      `/ingest/jobs/${jobId}/status`,
+    ),
 
   // ===========================================================================
   // EXTRACTION
   // ===========================================================================
 
-  /**
-   * Start extraction
-   *
-   * Backend:
-   * POST /api/v1/extract/{job_id}
-   */
   startExtraction: (
     jobId: number,
     data: Record<string, any> = {},
@@ -182,66 +151,33 @@ export const api = {
       data,
     ),
 
-
-  /**
-   * Get extraction status by job ID
-   *
-   * Backend:
-   * GET /api/v1/extract/{job_id}/status
-   */
-  getExtractionStatus: (jobId: number) =>
+  getExtractionStatus: (
+    jobId: number,
+  ) =>
     apiClient.get(
       `/extract/${jobId}/status`,
     ),
 
-
-  /**
-   * Get extraction status by task ID
-   *
-   * Backend:
-   * GET /api/v1/extract/tasks/{task_id}/status
-   */
-  getExtractionTaskStatus: (taskId: number) =>
+  getExtractionTaskStatus: (
+    taskId: number,
+  ) =>
     apiClient.get(
       `/extract/tasks/${taskId}/status`,
     ),
 
-
-  /**
-   * Cancel extraction by job ID
-   *
-   * Backend:
-   * POST /api/v1/extract/{job_id}/cancel
-   */
-  cancelExtraction: (jobId: number) =>
+  cancelExtraction: (
+    jobId: number,
+  ) =>
     apiClient.post(
       `/extract/${jobId}/cancel`,
     ),
 
-
-  /**
-   * Cancel extraction by task ID
-   *
-   * Backend:
-   * POST /api/v1/extract/tasks/{task_id}/cancel
-   */
-  cancelExtractionTask: (taskId: number) =>
+  cancelExtractionTask: (
+    taskId: number,
+  ) =>
     apiClient.post(
       `/extract/tasks/${taskId}/cancel`,
     ),
-
-
-  /**
-   * Get extracted product
-   *
-   * Backend:
-   * GET /api/v1/products/{product_id}
-   */
-  getExtractedProduct: (productId: number) =>
-    apiClient.get(
-      `/products/${productId}`,
-    ),
-
 
   // ===========================================================================
   // PRODUCTS
@@ -261,12 +197,61 @@ export const api = {
       },
     ),
 
-
-  getProduct: (productId: number) =>
+  getProduct: (
+    productId: number,
+  ) =>
     apiClient.get(
       `/products/${productId}`,
     ),
 
+  getExtractedProduct: (
+    productId: number,
+  ) =>
+    apiClient.get(
+      `/products/${productId}`,
+    ),
+
+  getProductGraph: (
+    productId: number,
+  ) =>
+    apiClient.get(
+      `/products/${productId}/graph`,
+    ),
+
+  // ===========================================================================
+  // CONFLICTS
+  // ===========================================================================
+
+  getConflicts: (
+    status?: string,
+  ) =>
+    apiClient.get(
+      '/conflicts',
+      {
+        params: {
+          status,
+        },
+      },
+    ),
+
+  resolveConflict: (
+    data: any,
+  ) =>
+    apiClient.post(
+      '/conflicts/resolve',
+      data,
+    ),
+
+  // ===========================================================================
+  // TRUST SCORES
+  // ===========================================================================
+
+  getTrustScore: (
+    productId: number,
+  ) =>
+    apiClient.get(
+      `/trust/${productId}`,
+    ),
 
   // ===========================================================================
   // INVESTIGATIONS
@@ -283,10 +268,10 @@ export const api = {
       data,
     ),
 
-
   listInvestigations: () =>
-    apiClient.get('/investigations'),
-
+    apiClient.get(
+      '/investigations',
+    ),
 
   getInvestigation: (
     investigationId: number,
@@ -295,12 +280,10 @@ export const api = {
       `/investigations/${investigationId}`,
     ),
 
-
   getAvailableInvestigationJobs: () =>
     apiClient.get(
       '/investigations/available-jobs',
     ),
-
 
   attachInvestigationJob: (
     investigationId: number,
@@ -310,14 +293,12 @@ export const api = {
       `/investigations/${investigationId}/sources/${jobId}`,
     ),
 
-
   getInvestigationComparison: (
     investigationId: number,
   ) =>
     apiClient.get(
       `/investigations/${investigationId}/comparison`,
     ),
-
 
   getInvestigationConflicts: (
     investigationId: number,
@@ -326,7 +307,6 @@ export const api = {
       `/investigations/${investigationId}/conflicts`,
     ),
 
-
   getInvestigationConflict: (
     investigationId: number,
     conflictId: number,
@@ -334,7 +314,6 @@ export const api = {
     apiClient.get(
       `/investigations/${investigationId}/conflicts/${conflictId}`,
     ),
-
 
   resolveInvestigationConflict: (
     investigationId: number,
@@ -345,7 +324,6 @@ export const api = {
         | 'ACCEPT_OTHER_VALUE'
         | 'MARK_AS_UNRESOLVED'
         | 'MARK_AS_HUMAN_REVIEW';
-
       chosen_value?: string;
       reasoning?: string;
     },
@@ -355,14 +333,12 @@ export const api = {
       data,
     ),
 
-
   deleteInvestigation: (
     investigationId: number,
   ) =>
     apiClient.delete(
       `/investigations/${investigationId}`,
     ),
-
 
   // ===========================================================================
   // EVALUATION
@@ -373,9 +349,10 @@ export const api = {
   ) =>
     apiClient.post(
       '/evaluation/run',
-      { mode },
+      {
+        mode,
+      },
     ),
-
 
   getEvaluationSummary: (
     mode: 'rule_quality' | 'ground_truth' = 'rule_quality',
@@ -383,10 +360,11 @@ export const api = {
     apiClient.get(
       '/evaluation/summary',
       {
-        params: { mode },
+        params: {
+          mode,
+        },
       },
     ),
-
 
   getEvaluationFailures: (
     runId?: number,
@@ -400,14 +378,12 @@ export const api = {
       },
     ),
 
-
   getEvaluationProduct: (
     resultId: number,
   ) =>
     apiClient.get(
       `/evaluation/products/${resultId}`,
     ),
-
 
   // ===========================================================================
   // GROUND TRUTH
@@ -418,14 +394,14 @@ export const api = {
       '/evaluation/ground-truth/availability',
     ),
 
-
   getGroundTruthSchema: () =>
     apiClient.get(
       '/evaluation/ground-truth/schema',
     ),
 
-
-  uploadGroundTruth: (file: File) => {
+  uploadGroundTruth: (
+    file: File,
+  ) => {
     const formData = new FormData();
 
     formData.append('file', file);
@@ -433,14 +409,8 @@ export const api = {
     return apiClient.post(
       '/evaluation/ground-truth/upload',
       formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      },
     );
   },
-
 
   getGroundTruthProductComparison: (
     productId: number,
@@ -448,7 +418,6 @@ export const api = {
     apiClient.get(
       `/evaluation/ground-truth/products/${productId}`,
     ),
-
 
   // ===========================================================================
   // REFERENCE DATA
@@ -459,12 +428,10 @@ export const api = {
       '/reference-data',
     ),
 
-
   getReferenceDataStatus: () =>
     apiClient.get(
       '/reference-data/status',
     ),
-
 
   importReferenceData: (
     file: File,
@@ -492,23 +459,20 @@ export const api = {
     return apiClient.post(
       '/reference-data/import',
       formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      },
     );
   },
 
-
-  searchManufacturers: (q?: string) =>
+  searchManufacturers: (
+    q?: string,
+  ) =>
     apiClient.get(
       '/manufacturers/search',
       {
-        params: { q },
+        params: {
+          q,
+        },
       },
     ),
-
 
   searchBrands: (
     q?: string,
@@ -524,15 +488,15 @@ export const api = {
       },
     ),
 
-
   resolveManufacturer: (
     value: string,
   ) =>
     apiClient.post(
       '/resolve/manufacturer',
-      { value },
+      {
+        value,
+      },
     ),
-
 
   resolveBrand: (
     brandValue: string,
@@ -545,7 +509,6 @@ export const api = {
         manufacturer_value: manufacturerValue,
       },
     ),
-
 
   resolveAttribute: (
     data: {
@@ -560,7 +523,6 @@ export const api = {
       data,
     ),
 
-
   normalizeUom: (
     value?: string,
     uom?: string,
@@ -573,15 +535,15 @@ export const api = {
       },
     ),
 
-
   normalizeFraction: (
     value: string,
   ) =>
     apiClient.post(
       '/normalize/fraction',
-      { value },
+      {
+        value,
+      },
     ),
-
 
   getLovForClasspath: (
     classpath: string,
@@ -596,7 +558,6 @@ export const api = {
       },
     ),
 
-
   // ===========================================================================
   // ENRICHMENT
   // ===========================================================================
@@ -607,10 +568,11 @@ export const api = {
     apiClient.get(
       '/enrichment/products',
       {
-        params: { limit },
+        params: {
+          limit,
+        },
       },
     ),
-
 
   analyzeProduct: (
     productId: number,
@@ -627,7 +589,6 @@ export const api = {
       },
     ),
 
-
   analyzeProductsBatch: (
     productIds: number[],
     mode:
@@ -642,14 +603,12 @@ export const api = {
       },
     ),
 
-
   resumeEnrichmentBatch: (
     batchId: number,
   ) =>
     apiClient.post(
       `/analyze/batch/${batchId}/resume`,
     ),
-
 
   getEnrichment: (
     productId: number,
@@ -658,14 +617,12 @@ export const api = {
       `/enrichment/${productId}`,
     ),
 
-
   getEnrichmentEvidence: (
     productId: number,
   ) =>
     apiClient.get(
       `/enrichment/${productId}/evidence`,
     ),
-
 
   getEnrichmentConflicts: (
     productId: number,
@@ -674,14 +631,12 @@ export const api = {
       `/enrichment/${productId}/conflicts`,
     ),
 
-
   getEnrichmentAttributes: (
     productId: number,
   ) =>
     apiClient.get(
       `/enrichment/${productId}/attributes`,
     ),
-
 
   reviewEnrichment: (
     productId: number,
@@ -691,7 +646,6 @@ export const api = {
         | 'EDIT'
         | 'REJECT'
         | 'MARK_UNRESOLVED';
-
       attribute_id?: number;
       value?: string;
       reason?: string;
@@ -702,7 +656,6 @@ export const api = {
       data,
     ),
 
-
   exportEnrichment: (
     productId: number,
     format: 'json' | 'csv' = 'json',
@@ -710,11 +663,12 @@ export const api = {
     apiClient.get(
       `/enrichment/${productId}/export`,
       {
-        params: { format },
+        params: {
+          format,
+        },
         responseType: 'blob',
       },
     ),
-
 
   // ===========================================================================
   // DISCOVERY
@@ -724,7 +678,6 @@ export const api = {
     apiClient.get(
       '/discovery/provider-status',
     ),
-
 
   runProductDiscovery: (
     productId: number,
@@ -737,14 +690,12 @@ export const api = {
       },
     ),
 
-
   getProductDiscovery: (
     productId: number,
   ) =>
     apiClient.get(
       `/discovery/product/${productId}`,
     ),
-
 
   getDiscoverySources: (
     productId: number,
@@ -753,7 +704,6 @@ export const api = {
       `/discovery/product/${productId}/sources`,
     ),
 
-
   getDiscoveryEvidence: (
     productId: number,
   ) =>
@@ -761,14 +711,12 @@ export const api = {
       `/discovery/product/${productId}/evidence`,
     ),
 
-
   getDiscoveryCrossSourceConflicts: (
     productId: number,
   ) =>
     apiClient.get(
       `/discovery/product/${productId}/cross-source-conflicts`,
     ),
-
 
   // ===========================================================================
   // COMMERCE OUTPUT
@@ -785,14 +733,12 @@ export const api = {
       },
     ),
 
-
   getCommerceOutput: (
     productId: number,
   ) =>
     apiClient.get(
       `/commerce-output/${productId}`,
     ),
-
 
   getCommerceOutputFields: (
     productId: number,
@@ -801,7 +747,6 @@ export const api = {
       `/commerce-output/${productId}/fields`,
     ),
 
-
   exportCommerceOutput: (
     productId: number,
     format: 'json' | 'csv' | 'xlsx' = 'json',
@@ -809,11 +754,12 @@ export const api = {
     apiClient.get(
       `/commerce-output/${productId}/export`,
       {
-        params: { format },
+        params: {
+          format,
+        },
         responseType: 'blob',
       },
     ),
-
 
   // ===========================================================================
   // CATALOG
@@ -837,21 +783,15 @@ export const api = {
     return apiClient.post(
       '/catalog/batches/upload',
       formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      },
     );
   },
-
 
   startCatalogBatch: (
     batchId: number,
     mode:
       | 'SOURCE_ONLY'
       | 'DISCOVERY_ENABLED' = 'SOURCE_ONLY',
-    useLlm = false,
+    useLlm: boolean = false,
   ) =>
     apiClient.post(
       `/catalog/batches/${batchId}/start`,
@@ -861,7 +801,6 @@ export const api = {
       },
     ),
 
-
   getCatalogStatus: (
     batchId: number,
   ) =>
@@ -869,14 +808,12 @@ export const api = {
       `/catalog/batches/${batchId}/status`,
     ),
 
-
   getCatalogProgress: (
     batchId: number,
   ) =>
     apiClient.get(
       `/catalog/batches/${batchId}/progress`,
     ),
-
 
   getCatalogResults: (
     batchId: number,
@@ -889,9 +826,10 @@ export const api = {
   ) =>
     apiClient.get(
       `/catalog/batches/${batchId}/results`,
-      { params },
+      {
+        params,
+      },
     ),
-
 
   getCatalogFailures: (
     batchId: number,
@@ -902,9 +840,10 @@ export const api = {
   ) =>
     apiClient.get(
       `/catalog/batches/${batchId}/failures`,
-      { params },
+      {
+        params,
+      },
     ),
-
 
   retryCatalogBatch: (
     batchId: number,
@@ -922,14 +861,12 @@ export const api = {
       },
     ),
 
-
   cancelCatalogBatch: (
     batchId: number,
   ) =>
     apiClient.post(
       `/catalog/batches/${batchId}/cancel`,
     ),
-
 
   getCatalogSummary: (
     batchId: number,
@@ -938,14 +875,12 @@ export const api = {
       `/catalog/batches/${batchId}/summary`,
     ),
 
-
   getCatalogReviewQueue: (
     batchId: number,
   ) =>
     apiClient.get(
       `/catalog/batches/${batchId}/review-queue`,
     ),
-
 
   getCatalogReport: (
     batchId: number,
@@ -954,7 +889,6 @@ export const api = {
     apiClient.get(
       `/catalog/batches/${batchId}/reports/${reportType}`,
     ),
-
 
   exportCatalog: (
     batchId: number,
@@ -976,7 +910,6 @@ export const api = {
       },
     ),
 
-
   // ===========================================================================
   // DASHBOARD
   // ===========================================================================
@@ -985,7 +918,6 @@ export const api = {
     apiClient.get(
       '/dashboard/overview',
     ),
-
 
   getDashboardProducts: (
     params?: {
@@ -996,9 +928,10 @@ export const api = {
   ) =>
     apiClient.get(
       '/dashboard/products',
-      { params },
+      {
+        params,
+      },
     ),
-
 
   getDashboardProduct: (
     productId: number,
@@ -1006,7 +939,6 @@ export const api = {
     apiClient.get(
       `/dashboard/products/${productId}`,
     ),
-
 
   // ===========================================================================
   // LEGACY EXPORT
@@ -1028,9 +960,8 @@ export const api = {
     ),
 };
 
-
-// -----------------------------------------------------------------------------
+// =============================================================================
 // DEFAULT EXPORT
-// -----------------------------------------------------------------------------
+// =============================================================================
 
 export default apiClient;
