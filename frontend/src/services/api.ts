@@ -1,194 +1,1036 @@
 import axios, { AxiosInstance } from 'axios';
 
-// In production set VITE_API_URL to the deployed backend API base, e.g. https://api.example.com/api/v1.
-// Local development intentionally falls back to the Vite /api proxy rather than hardcoding localhost.
+// -----------------------------------------------------------------------------
+// API BASE URL
+// -----------------------------------------------------------------------------
+// Local development:
+//   VITE_API_URL is not required.
+//   Requests will use the Vite /api proxy.
+//
+// Production:
+//   Set VITE_API_URL to your deployed FastAPI backend, for example:
+//   https://your-backend.example.com/api/v1
+//
+// IMPORTANT:
+//   Do NOT add /api/v1 twice.
+//   Correct:
+//      https://your-backend.example.com/api/v1
+// -----------------------------------------------------------------------------
+
 const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
-const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 120000);
+
+const API_TIMEOUT_MS = Number(
+  import.meta.env.VITE_API_TIMEOUT_MS || 120000,
+);
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
   timeout: API_TIMEOUT_MS,
 });
 
+// -----------------------------------------------------------------------------
+// RESPONSE ERROR HANDLING
+// -----------------------------------------------------------------------------
+
 apiClient.interceptors.response.use(
   (response) => response,
+
   (error) => {
     const detail = error?.response?.data?.detail;
+
     if (Array.isArray(detail)) {
-      error.message = detail.map((item: any) => item?.msg || String(item)).join('; ');
+      error.message = detail
+        .map((item: any) => item?.msg || String(item))
+        .join('; ');
     } else if (typeof detail === 'string' && detail.trim()) {
       error.message = detail;
     } else if (!error?.response) {
       error.message = 'Backend unavailable or request timed out.';
     }
+
     return Promise.reject(error);
   },
 );
 
+// =============================================================================
+// API
+// =============================================================================
+
 export const api = {
-  // Health check
-  health: () => apiClient.get('/health'),
 
-  // Products
-  getProducts: (skip: number = 0, limit: number = 10) =>
-    apiClient.get('/products', { params: { skip, limit } }),
+  // ===========================================================================
+  // HEALTH
+  // ===========================================================================
+
+  health: () =>
+    apiClient.get('/health'),
+
+
+  // ===========================================================================
+  // INGESTION
+  // ===========================================================================
+
+  /**
+   * Upload PDF
+   *
+   * Backend:
+   * POST /api/v1/ingest/upload-pdf
+   */
+  uploadPdf: (file: File, jobName?: string) => {
+    const formData = new FormData();
+
+    formData.append('file', file);
+
+    if (jobName) {
+      formData.append('job_name', jobName);
+    }
+
+    return apiClient.post(
+      '/ingest/upload-pdf',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      },
+    );
+  },
+
+
+  /**
+   * Upload CSV
+   *
+   * Backend:
+   * POST /api/v1/ingest/upload-csv
+   */
+  uploadCsv: (file: File, jobName?: string) => {
+    const formData = new FormData();
+
+    formData.append('file', file);
+
+    if (jobName) {
+      formData.append('job_name', jobName);
+    }
+
+    return apiClient.post(
+      '/ingest/upload-csv',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      },
+    );
+  },
+
+
+  /**
+   * Upload Website
+   *
+   * Backend:
+   * POST /api/v1/ingest/upload-website?url=...&job_name=...
+   */
+  uploadWebsite: (url: string, jobName = 'Website Upload') =>
+    apiClient.post(
+      '/ingest/upload-website',
+      null,
+      {
+        params: {
+          url,
+          job_name: jobName,
+        },
+      },
+    ),
+
+
+  /**
+   * Get ingestion job details
+   *
+   * Backend:
+   * GET /api/v1/ingest/jobs/{job_id}
+   */
+  getIngestionJob: (jobId: number) =>
+    apiClient.get(`/ingest/jobs/${jobId}`),
+
+
+  /**
+   * Get ingestion job status
+   *
+   * Backend:
+   * GET /api/v1/ingest/jobs/{job_id}/status
+   */
+  getIngestionStatus: (jobId: number) =>
+    apiClient.get(`/ingest/jobs/${jobId}/status`),
+
+
+  // ===========================================================================
+  // EXTRACTION
+  // ===========================================================================
+
+  /**
+   * Start extraction
+   *
+   * Backend:
+   * POST /api/v1/extract/{job_id}
+   */
+  startExtraction: (
+    jobId: number,
+    data: Record<string, any> = {},
+  ) =>
+    apiClient.post(
+      `/extract/${jobId}`,
+      data,
+    ),
+
+
+  /**
+   * Get extraction status by job ID
+   *
+   * Backend:
+   * GET /api/v1/extract/{job_id}/status
+   */
+  getExtractionStatus: (jobId: number) =>
+    apiClient.get(
+      `/extract/${jobId}/status`,
+    ),
+
+
+  /**
+   * Get extraction status by task ID
+   *
+   * Backend:
+   * GET /api/v1/extract/tasks/{task_id}/status
+   */
+  getExtractionTaskStatus: (taskId: number) =>
+    apiClient.get(
+      `/extract/tasks/${taskId}/status`,
+    ),
+
+
+  /**
+   * Cancel extraction by job ID
+   *
+   * Backend:
+   * POST /api/v1/extract/{job_id}/cancel
+   */
+  cancelExtraction: (jobId: number) =>
+    apiClient.post(
+      `/extract/${jobId}/cancel`,
+    ),
+
+
+  /**
+   * Cancel extraction by task ID
+   *
+   * Backend:
+   * POST /api/v1/extract/tasks/{task_id}/cancel
+   */
+  cancelExtractionTask: (taskId: number) =>
+    apiClient.post(
+      `/extract/tasks/${taskId}/cancel`,
+    ),
+
+
+  /**
+   * Get extracted product
+   *
+   * Backend:
+   * GET /api/v1/products/{product_id}
+   */
+  getExtractedProduct: (productId: number) =>
+    apiClient.get(
+      `/products/${productId}`,
+    ),
+
+
+  // ===========================================================================
+  // PRODUCTS
+  // ===========================================================================
+
+  getProducts: (
+    skip: number = 0,
+    limit: number = 10,
+  ) =>
+    apiClient.get(
+      '/products',
+      {
+        params: {
+          skip,
+          limit,
+        },
+      },
+    ),
+
+
   getProduct: (productId: number) =>
-    apiClient.get(`/products/${productId}`),
-  getProductGraph: (productId: number) =>
-    apiClient.get(`/products/${productId}/graph`),
+    apiClient.get(
+      `/products/${productId}`,
+    ),
 
-  // Conflicts
-  getConflicts: (status?: string) =>
-    apiClient.get('/conflicts', { params: { status } }),
-  resolveConflict: (data: any) =>
-    apiClient.post('/conflicts/resolve', data),
 
-  // Trust Scores
-  getTrustScore: (productId: number) =>
-    apiClient.get(`/trust/${productId}`),
+  // ===========================================================================
+  // INVESTIGATIONS
+  // ===========================================================================
 
-  // Product Investigations
-  createInvestigation: (data: { name: string; description?: string }) =>
-    apiClient.post('/investigations', data),
-  listInvestigations: () => apiClient.get('/investigations'),
-  getInvestigation: (investigationId: number) =>
-    apiClient.get(`/investigations/${investigationId}`),
+  createInvestigation: (
+    data: {
+      name: string;
+      description?: string;
+    },
+  ) =>
+    apiClient.post(
+      '/investigations',
+      data,
+    ),
+
+
+  listInvestigations: () =>
+    apiClient.get('/investigations'),
+
+
+  getInvestigation: (
+    investigationId: number,
+  ) =>
+    apiClient.get(
+      `/investigations/${investigationId}`,
+    ),
+
+
   getAvailableInvestigationJobs: () =>
-    apiClient.get('/investigations/available-jobs'),
-  attachInvestigationJob: (investigationId: number, jobId: number) =>
-    apiClient.post(`/investigations/${investigationId}/sources/${jobId}`),
-  getInvestigationComparison: (investigationId: number) =>
-    apiClient.get(`/investigations/${investigationId}/comparison`),
-  getInvestigationConflicts: (investigationId: number) =>
-    apiClient.get(`/investigations/${investigationId}/conflicts`),
-  getInvestigationConflict: (investigationId: number, conflictId: number) =>
-    apiClient.get(`/investigations/${investigationId}/conflicts/${conflictId}`),
+    apiClient.get(
+      '/investigations/available-jobs',
+    ),
+
+
+  attachInvestigationJob: (
+    investigationId: number,
+    jobId: number,
+  ) =>
+    apiClient.post(
+      `/investigations/${investigationId}/sources/${jobId}`,
+    ),
+
+
+  getInvestigationComparison: (
+    investigationId: number,
+  ) =>
+    apiClient.get(
+      `/investigations/${investigationId}/comparison`,
+    ),
+
+
+  getInvestigationConflicts: (
+    investigationId: number,
+  ) =>
+    apiClient.get(
+      `/investigations/${investigationId}/conflicts`,
+    ),
+
+
+  getInvestigationConflict: (
+    investigationId: number,
+    conflictId: number,
+  ) =>
+    apiClient.get(
+      `/investigations/${investigationId}/conflicts/${conflictId}`,
+    ),
+
+
   resolveInvestigationConflict: (
     investigationId: number,
     conflictId: number,
-    data: { action: 'ACCEPT_SOURCE_VALUE' | 'ACCEPT_OTHER_VALUE' | 'MARK_AS_UNRESOLVED' | 'MARK_AS_HUMAN_REVIEW'; chosen_value?: string; reasoning?: string },
-  ) => apiClient.post(`/investigations/${investigationId}/conflicts/${conflictId}/resolve`, data),
-  deleteInvestigation: (investigationId: number) =>
-    apiClient.delete(`/investigations/${investigationId}`),
+    data: {
+      action:
+        | 'ACCEPT_SOURCE_VALUE'
+        | 'ACCEPT_OTHER_VALUE'
+        | 'MARK_AS_UNRESOLVED'
+        | 'MARK_AS_HUMAN_REVIEW';
 
-  // Evaluation — rule-quality and ground-truth results are intentionally separate.
-  runEvaluation: (mode: 'rule_quality' | 'ground_truth' = 'rule_quality') =>
-    apiClient.post('/evaluation/run', { mode }),
-  getEvaluationSummary: (mode: 'rule_quality' | 'ground_truth' = 'rule_quality') =>
-    apiClient.get('/evaluation/summary', { params: { mode } }),
-  getEvaluationFailures: (runId?: number) =>
-    apiClient.get('/evaluation/failures', { params: { run_id: runId } }),
-  getEvaluationProduct: (resultId: number) =>
-    apiClient.get(`/evaluation/products/${resultId}`),
+      chosen_value?: string;
+      reasoning?: string;
+    },
+  ) =>
+    apiClient.post(
+      `/investigations/${investigationId}/conflicts/${conflictId}/resolve`,
+      data,
+    ),
+
+
+  deleteInvestigation: (
+    investigationId: number,
+  ) =>
+    apiClient.delete(
+      `/investigations/${investigationId}`,
+    ),
+
+
+  // ===========================================================================
+  // EVALUATION
+  // ===========================================================================
+
+  runEvaluation: (
+    mode: 'rule_quality' | 'ground_truth' = 'rule_quality',
+  ) =>
+    apiClient.post(
+      '/evaluation/run',
+      { mode },
+    ),
+
+
+  getEvaluationSummary: (
+    mode: 'rule_quality' | 'ground_truth' = 'rule_quality',
+  ) =>
+    apiClient.get(
+      '/evaluation/summary',
+      {
+        params: { mode },
+      },
+    ),
+
+
+  getEvaluationFailures: (
+    runId?: number,
+  ) =>
+    apiClient.get(
+      '/evaluation/failures',
+      {
+        params: {
+          run_id: runId,
+        },
+      },
+    ),
+
+
+  getEvaluationProduct: (
+    resultId: number,
+  ) =>
+    apiClient.get(
+      `/evaluation/products/${resultId}`,
+    ),
+
+
+  // ===========================================================================
+  // GROUND TRUTH
+  // ===========================================================================
+
   getGroundTruthAvailability: () =>
-    apiClient.get('/evaluation/ground-truth/availability'),
+    apiClient.get(
+      '/evaluation/ground-truth/availability',
+    ),
+
+
   getGroundTruthSchema: () =>
-    apiClient.get('/evaluation/ground-truth/schema'),
+    apiClient.get(
+      '/evaluation/ground-truth/schema',
+    ),
+
+
   uploadGroundTruth: (file: File) => {
     const formData = new FormData();
-    formData.append('file', file);
-    return apiClient.post('/evaluation/ground-truth/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-  },
-  getGroundTruthProductComparison: (productId: number) =>
-    apiClient.get(`/evaluation/ground-truth/products/${productId}`),
 
-  // Phase 5 reference data — only user-imported official datasets can approve a value.
-  getReferenceDatasets: () => apiClient.get('/reference-data'),
-  getReferenceDataStatus: () => apiClient.get('/reference-data/status'),
-  importReferenceData: (file: File, datasetType?: string, version?: string) => {
+    formData.append('file', file);
+
+    return apiClient.post(
+      '/evaluation/ground-truth/upload',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      },
+    );
+  },
+
+
+  getGroundTruthProductComparison: (
+    productId: number,
+  ) =>
+    apiClient.get(
+      `/evaluation/ground-truth/products/${productId}`,
+    ),
+
+
+  // ===========================================================================
+  // REFERENCE DATA
+  // ===========================================================================
+
+  getReferenceDatasets: () =>
+    apiClient.get(
+      '/reference-data',
+    ),
+
+
+  getReferenceDataStatus: () =>
+    apiClient.get(
+      '/reference-data/status',
+    ),
+
+
+  importReferenceData: (
+    file: File,
+    datasetType?: string,
+    version?: string,
+  ) => {
     const formData = new FormData();
+
     formData.append('file', file);
-    if (datasetType) formData.append('dataset_type', datasetType);
-    if (version) formData.append('version', version);
-    return apiClient.post('/reference-data/import', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+
+    if (datasetType) {
+      formData.append(
+        'dataset_type',
+        datasetType,
+      );
+    }
+
+    if (version) {
+      formData.append(
+        'version',
+        version,
+      );
+    }
+
+    return apiClient.post(
+      '/reference-data/import',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      },
+    );
   },
-  searchManufacturers: (q?: string) => apiClient.get('/manufacturers/search', { params: { q } }),
-  searchBrands: (q?: string, manufacturer?: string) =>
-    apiClient.get('/brands/search', { params: { q, manufacturer } }),
-  resolveManufacturer: (value: string) => apiClient.post('/resolve/manufacturer', { value }),
-  resolveBrand: (brandValue: string, manufacturerValue?: string) =>
-    apiClient.post('/resolve/brand', { brand_value: brandValue, manufacturer_value: manufacturerValue }),
-  resolveAttribute: (data: { classpath?: string; leaf_node?: string; attribute: string; candidate_value?: string }) =>
-    apiClient.post('/resolve/attribute', data),
-  normalizeUom: (value?: string, uom?: string) => apiClient.post('/normalize/uom', { value, uom }),
-  normalizeFraction: (value: string) => apiClient.post('/normalize/fraction', { value }),
-  getLovForClasspath: (classpath: string, attribute?: string) =>
-    apiClient.get(`/lov/${encodeURIComponent(classpath)}`, { params: { attribute } }),
 
-  // Phase 6 enrichment — results remain source-backed and are not ground-truth claims.
-  listEnrichmentProducts: (limit: number = 100) => apiClient.get('/enrichment/products', { params: { limit } }),
-  analyzeProduct: (productId: number, useLlm: boolean = false, mode: 'SOURCE_ONLY' | 'DISCOVERY_ENABLED' = 'SOURCE_ONLY') =>
-    apiClient.post(`/analyze/${productId}`, { use_llm: useLlm, mode }),
-  analyzeProductsBatch: (productIds: number[], mode: 'SOURCE_ONLY' | 'DISCOVERY_ENABLED' = 'SOURCE_ONLY') =>
-    apiClient.post('/analyze/batch', { product_ids: productIds, mode }),
-  resumeEnrichmentBatch: (batchId: number) => apiClient.post(`/analyze/batch/${batchId}/resume`),
-  getEnrichment: (productId: number) => apiClient.get(`/enrichment/${productId}`),
-  getEnrichmentEvidence: (productId: number) => apiClient.get(`/enrichment/${productId}/evidence`),
-  getEnrichmentConflicts: (productId: number) => apiClient.get(`/enrichment/${productId}/conflicts`),
-  getEnrichmentAttributes: (productId: number) => apiClient.get(`/enrichment/${productId}/attributes`),
-  reviewEnrichment: (productId: number, data: { action: 'APPROVE' | 'EDIT' | 'REJECT' | 'MARK_UNRESOLVED'; attribute_id?: number; value?: string; reason?: string }) =>
-    apiClient.post(`/enrichment/${productId}/review`, data),
-  exportEnrichment: (productId: number, format: 'json' | 'csv' = 'json') =>
-    apiClient.get(`/enrichment/${productId}/export`, { params: { format }, responseType: 'blob' }),
 
-  // Phase 7 controlled discovery — no provider result is explicit and never fabricated.
-  getDiscoveryProviderStatus: () => apiClient.get('/discovery/provider-status'),
-  runProductDiscovery: (productId: number, userUrls: string[] = []) =>
-    apiClient.post(`/discovery/product/${productId}`, { user_urls: userUrls }),
-  getProductDiscovery: (productId: number) => apiClient.get(`/discovery/product/${productId}`),
-  getDiscoverySources: (productId: number) => apiClient.get(`/discovery/product/${productId}/sources`),
-  getDiscoveryEvidence: (productId: number) => apiClient.get(`/discovery/product/${productId}/evidence`),
-  getDiscoveryCrossSourceConflicts: (productId: number) =>
-    apiClient.get(`/discovery/product/${productId}/cross-source-conflicts`),
+  searchManufacturers: (q?: string) =>
+    apiClient.get(
+      '/manufacturers/search',
+      {
+        params: { q },
+      },
+    ),
 
-  // Commerce-ready output — stable delivery records remain source-backed and never claim ground-truth accuracy.
-  generateCommerceOutput: (productId: number, enrichmentRunId?: number) =>
-    apiClient.post(`/commerce-output/${productId}/generate`, { enrichment_run_id: enrichmentRunId }),
-  getCommerceOutput: (productId: number) => apiClient.get(`/commerce-output/${productId}`),
-  getCommerceOutputFields: (productId: number) => apiClient.get(`/commerce-output/${productId}/fields`),
-  exportCommerceOutput: (productId: number, format: 'json' | 'csv' | 'xlsx' = 'json') =>
-    apiClient.get(`/commerce-output/${productId}/export`, { params: { format }, responseType: 'blob' }),
 
-  // Phase 9 catalog processing — persisted, bounded batch workflows over source-backed products.
-  uploadCatalog: (file: File, datasetName?: string) => {
+  searchBrands: (
+    q?: string,
+    manufacturer?: string,
+  ) =>
+    apiClient.get(
+      '/brands/search',
+      {
+        params: {
+          q,
+          manufacturer,
+        },
+      },
+    ),
+
+
+  resolveManufacturer: (
+    value: string,
+  ) =>
+    apiClient.post(
+      '/resolve/manufacturer',
+      { value },
+    ),
+
+
+  resolveBrand: (
+    brandValue: string,
+    manufacturerValue?: string,
+  ) =>
+    apiClient.post(
+      '/resolve/brand',
+      {
+        brand_value: brandValue,
+        manufacturer_value: manufacturerValue,
+      },
+    ),
+
+
+  resolveAttribute: (
+    data: {
+      classpath?: string;
+      leaf_node?: string;
+      attribute: string;
+      candidate_value?: string;
+    },
+  ) =>
+    apiClient.post(
+      '/resolve/attribute',
+      data,
+    ),
+
+
+  normalizeUom: (
+    value?: string,
+    uom?: string,
+  ) =>
+    apiClient.post(
+      '/normalize/uom',
+      {
+        value,
+        uom,
+      },
+    ),
+
+
+  normalizeFraction: (
+    value: string,
+  ) =>
+    apiClient.post(
+      '/normalize/fraction',
+      { value },
+    ),
+
+
+  getLovForClasspath: (
+    classpath: string,
+    attribute?: string,
+  ) =>
+    apiClient.get(
+      `/lov/${encodeURIComponent(classpath)}`,
+      {
+        params: {
+          attribute,
+        },
+      },
+    ),
+
+
+  // ===========================================================================
+  // ENRICHMENT
+  // ===========================================================================
+
+  listEnrichmentProducts: (
+    limit: number = 100,
+  ) =>
+    apiClient.get(
+      '/enrichment/products',
+      {
+        params: { limit },
+      },
+    ),
+
+
+  analyzeProduct: (
+    productId: number,
+    useLlm: boolean = false,
+    mode:
+      | 'SOURCE_ONLY'
+      | 'DISCOVERY_ENABLED' = 'SOURCE_ONLY',
+  ) =>
+    apiClient.post(
+      `/analyze/${productId}`,
+      {
+        use_llm: useLlm,
+        mode,
+      },
+    ),
+
+
+  analyzeProductsBatch: (
+    productIds: number[],
+    mode:
+      | 'SOURCE_ONLY'
+      | 'DISCOVERY_ENABLED' = 'SOURCE_ONLY',
+  ) =>
+    apiClient.post(
+      '/analyze/batch',
+      {
+        product_ids: productIds,
+        mode,
+      },
+    ),
+
+
+  resumeEnrichmentBatch: (
+    batchId: number,
+  ) =>
+    apiClient.post(
+      `/analyze/batch/${batchId}/resume`,
+    ),
+
+
+  getEnrichment: (
+    productId: number,
+  ) =>
+    apiClient.get(
+      `/enrichment/${productId}`,
+    ),
+
+
+  getEnrichmentEvidence: (
+    productId: number,
+  ) =>
+    apiClient.get(
+      `/enrichment/${productId}/evidence`,
+    ),
+
+
+  getEnrichmentConflicts: (
+    productId: number,
+  ) =>
+    apiClient.get(
+      `/enrichment/${productId}/conflicts`,
+    ),
+
+
+  getEnrichmentAttributes: (
+    productId: number,
+  ) =>
+    apiClient.get(
+      `/enrichment/${productId}/attributes`,
+    ),
+
+
+  reviewEnrichment: (
+    productId: number,
+    data: {
+      action:
+        | 'APPROVE'
+        | 'EDIT'
+        | 'REJECT'
+        | 'MARK_UNRESOLVED';
+
+      attribute_id?: number;
+      value?: string;
+      reason?: string;
+    },
+  ) =>
+    apiClient.post(
+      `/enrichment/${productId}/review`,
+      data,
+    ),
+
+
+  exportEnrichment: (
+    productId: number,
+    format: 'json' | 'csv' = 'json',
+  ) =>
+    apiClient.get(
+      `/enrichment/${productId}/export`,
+      {
+        params: { format },
+        responseType: 'blob',
+      },
+    ),
+
+
+  // ===========================================================================
+  // DISCOVERY
+  // ===========================================================================
+
+  getDiscoveryProviderStatus: () =>
+    apiClient.get(
+      '/discovery/provider-status',
+    ),
+
+
+  runProductDiscovery: (
+    productId: number,
+    userUrls: string[] = [],
+  ) =>
+    apiClient.post(
+      `/discovery/product/${productId}`,
+      {
+        user_urls: userUrls,
+      },
+    ),
+
+
+  getProductDiscovery: (
+    productId: number,
+  ) =>
+    apiClient.get(
+      `/discovery/product/${productId}`,
+    ),
+
+
+  getDiscoverySources: (
+    productId: number,
+  ) =>
+    apiClient.get(
+      `/discovery/product/${productId}/sources`,
+    ),
+
+
+  getDiscoveryEvidence: (
+    productId: number,
+  ) =>
+    apiClient.get(
+      `/discovery/product/${productId}/evidence`,
+    ),
+
+
+  getDiscoveryCrossSourceConflicts: (
+    productId: number,
+  ) =>
+    apiClient.get(
+      `/discovery/product/${productId}/cross-source-conflicts`,
+    ),
+
+
+  // ===========================================================================
+  // COMMERCE OUTPUT
+  // ===========================================================================
+
+  generateCommerceOutput: (
+    productId: number,
+    enrichmentRunId?: number,
+  ) =>
+    apiClient.post(
+      `/commerce-output/${productId}/generate`,
+      {
+        enrichment_run_id: enrichmentRunId,
+      },
+    ),
+
+
+  getCommerceOutput: (
+    productId: number,
+  ) =>
+    apiClient.get(
+      `/commerce-output/${productId}`,
+    ),
+
+
+  getCommerceOutputFields: (
+    productId: number,
+  ) =>
+    apiClient.get(
+      `/commerce-output/${productId}/fields`,
+    ),
+
+
+  exportCommerceOutput: (
+    productId: number,
+    format: 'json' | 'csv' | 'xlsx' = 'json',
+  ) =>
+    apiClient.get(
+      `/commerce-output/${productId}/export`,
+      {
+        params: { format },
+        responseType: 'blob',
+      },
+    ),
+
+
+  // ===========================================================================
+  // CATALOG
+  // ===========================================================================
+
+  uploadCatalog: (
+    file: File,
+    datasetName?: string,
+  ) => {
     const formData = new FormData();
+
     formData.append('file', file);
-    if (datasetName) formData.append('dataset_name', datasetName);
-    return apiClient.post('/catalog/batches/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+
+    if (datasetName) {
+      formData.append(
+        'dataset_name',
+        datasetName,
+      );
+    }
+
+    return apiClient.post(
+      '/catalog/batches/upload',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      },
+    );
   },
-  startCatalogBatch: (batchId: number, mode: 'SOURCE_ONLY' | 'DISCOVERY_ENABLED' = 'SOURCE_ONLY', useLlm = false) =>
-    apiClient.post(`/catalog/batches/${batchId}/start`, { mode, use_llm: useLlm }),
-  getCatalogStatus: (batchId: number) => apiClient.get(`/catalog/batches/${batchId}/status`),
-  getCatalogProgress: (batchId: number) => apiClient.get(`/catalog/batches/${batchId}/progress`),
-  getCatalogResults: (batchId: number, params?: { page?: number; page_size?: number; status?: string; search?: string }) =>
-    apiClient.get(`/catalog/batches/${batchId}/results`, { params }),
-  getCatalogFailures: (batchId: number, params?: { page?: number; page_size?: number }) =>
-    apiClient.get(`/catalog/batches/${batchId}/failures`, { params }),
-  retryCatalogBatch: (batchId: number, itemIds: number[] = [], mode: 'SOURCE_ONLY' | 'DISCOVERY_ENABLED' = 'SOURCE_ONLY') =>
-    apiClient.post(`/catalog/batches/${batchId}/retry`, { item_ids: itemIds, start_immediately: true, mode }),
-  cancelCatalogBatch: (batchId: number) => apiClient.post(`/catalog/batches/${batchId}/cancel`),
-  getCatalogSummary: (batchId: number) => apiClient.get(`/catalog/batches/${batchId}/summary`),
-  getCatalogReviewQueue: (batchId: number) => apiClient.get(`/catalog/batches/${batchId}/review-queue`),
-  getCatalogReport: (batchId: number, reportType: string) => apiClient.get(`/catalog/batches/${batchId}/reports/${reportType}`),
-  exportCatalog: (batchId: number, format: 'json' | 'csv' | 'xlsx', filter: 'all' | 'ready' | 'review_required' | 'failed' = 'all') =>
-    apiClient.get(`/catalog/batches/${batchId}/export`, { params: { format, filter }, responseType: 'blob' }),
 
-  // Phase 10 evaluator dashboard — read-only aggregation over persisted Phase 1–9 state.
-  getDashboardOverview: () => apiClient.get('/dashboard/overview'),
-  getDashboardProducts: (params?: { page?: number; page_size?: number; search?: string }) =>
-    apiClient.get('/dashboard/products', { params }),
-  getDashboardProduct: (productId: number) => apiClient.get(`/dashboard/products/${productId}`),
 
-  // Legacy export placeholder retained for compatibility with older clients.
-  exportCommerce: (format: 'json' | 'csv' = 'json', category?: string) =>
-    apiClient.get('/export/commerce', { params: { format, category }, responseType: 'blob' }),
+  startCatalogBatch: (
+    batchId: number,
+    mode:
+      | 'SOURCE_ONLY'
+      | 'DISCOVERY_ENABLED' = 'SOURCE_ONLY',
+    useLlm = false,
+  ) =>
+    apiClient.post(
+      `/catalog/batches/${batchId}/start`,
+      {
+        mode,
+        use_llm: useLlm,
+      },
+    ),
+
+
+  getCatalogStatus: (
+    batchId: number,
+  ) =>
+    apiClient.get(
+      `/catalog/batches/${batchId}/status`,
+    ),
+
+
+  getCatalogProgress: (
+    batchId: number,
+  ) =>
+    apiClient.get(
+      `/catalog/batches/${batchId}/progress`,
+    ),
+
+
+  getCatalogResults: (
+    batchId: number,
+    params?: {
+      page?: number;
+      page_size?: number;
+      status?: string;
+      search?: string;
+    },
+  ) =>
+    apiClient.get(
+      `/catalog/batches/${batchId}/results`,
+      { params },
+    ),
+
+
+  getCatalogFailures: (
+    batchId: number,
+    params?: {
+      page?: number;
+      page_size?: number;
+    },
+  ) =>
+    apiClient.get(
+      `/catalog/batches/${batchId}/failures`,
+      { params },
+    ),
+
+
+  retryCatalogBatch: (
+    batchId: number,
+    itemIds: number[] = [],
+    mode:
+      | 'SOURCE_ONLY'
+      | 'DISCOVERY_ENABLED' = 'SOURCE_ONLY',
+  ) =>
+    apiClient.post(
+      `/catalog/batches/${batchId}/retry`,
+      {
+        item_ids: itemIds,
+        start_immediately: true,
+        mode,
+      },
+    ),
+
+
+  cancelCatalogBatch: (
+    batchId: number,
+  ) =>
+    apiClient.post(
+      `/catalog/batches/${batchId}/cancel`,
+    ),
+
+
+  getCatalogSummary: (
+    batchId: number,
+  ) =>
+    apiClient.get(
+      `/catalog/batches/${batchId}/summary`,
+    ),
+
+
+  getCatalogReviewQueue: (
+    batchId: number,
+  ) =>
+    apiClient.get(
+      `/catalog/batches/${batchId}/review-queue`,
+    ),
+
+
+  getCatalogReport: (
+    batchId: number,
+    reportType: string,
+  ) =>
+    apiClient.get(
+      `/catalog/batches/${batchId}/reports/${reportType}`,
+    ),
+
+
+  exportCatalog: (
+    batchId: number,
+    format: 'json' | 'csv' | 'xlsx',
+    filter:
+      | 'all'
+      | 'ready'
+      | 'review_required'
+      | 'failed' = 'all',
+  ) =>
+    apiClient.get(
+      `/catalog/batches/${batchId}/export`,
+      {
+        params: {
+          format,
+          filter,
+        },
+        responseType: 'blob',
+      },
+    ),
+
+
+  // ===========================================================================
+  // DASHBOARD
+  // ===========================================================================
+
+  getDashboardOverview: () =>
+    apiClient.get(
+      '/dashboard/overview',
+    ),
+
+
+  getDashboardProducts: (
+    params?: {
+      page?: number;
+      page_size?: number;
+      search?: string;
+    },
+  ) =>
+    apiClient.get(
+      '/dashboard/products',
+      { params },
+    ),
+
+
+  getDashboardProduct: (
+    productId: number,
+  ) =>
+    apiClient.get(
+      `/dashboard/products/${productId}`,
+    ),
+
+
+  // ===========================================================================
+  // LEGACY EXPORT
+  // ===========================================================================
+
+  exportCommerce: (
+    format: 'json' | 'csv' = 'json',
+    category?: string,
+  ) =>
+    apiClient.get(
+      '/export/commerce',
+      {
+        params: {
+          format,
+          category,
+        },
+        responseType: 'blob',
+      },
+    ),
 };
+
+
+// -----------------------------------------------------------------------------
+// DEFAULT EXPORT
+// -----------------------------------------------------------------------------
 
 export default apiClient;
