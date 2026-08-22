@@ -45,14 +45,12 @@ def _allowed_origins() -> list[str]:
             settings.frontend_url.strip().rstrip("/")
         )
 
-    # Allow the deployed Vercel frontend.
+    # Production Vercel frontend
     configured.append(
-        "https://frontend-beige-phi-75.vercel.app"
+        "https://frontend-pxznmj097-navika-m.vercel.app"
     )
 
-    # Remove duplicates while preserving order.
     return list(dict.fromkeys(configured))
-
 
 _docs_url = "/docs" if settings.enable_docs else None
 _redoc_url = "/redoc" if settings.enable_docs else None
